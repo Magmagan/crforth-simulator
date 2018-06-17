@@ -2,7 +2,7 @@ module CrSymbols
     
     INSTRUCTIONS = {
         'PUSH' => '0PPP_PPPP_PPPP_PPPP',
-        'ALU'  => '1000_0000_AAAA_0000',
+        'ALU'  => '1000_0000_AAAA_000S',
         'JUMP' => '1000_0011_0000_000S',
         'IF'   => '1000_0010_0000_000S',
         'DUP'  => '1000_0111_0000_000S',
@@ -53,5 +53,9 @@ module CrSymbols
         '='      => '1110',
         '<>'     => '1111',
     }
+    
+    def to_ins (value)
+        value.gsub("_", "").to_i(2)
+    end
     
 end
