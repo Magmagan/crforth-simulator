@@ -24,8 +24,11 @@ module InitMemory
         # Convert tokens into instructions
         instructions = convert(tokens)
         
+        # Convert instructions to integers and resize array to 256.
+        instructions.map! {|i| CrSymbols.to_ins(i)}
+        instructions.fill(0, instructions.length...256)
         
-        
+        return instructions
     end
     
     def convert (tokens)
@@ -96,6 +99,7 @@ module InitMemory
             puts 'Error:' + token
         end
         
+        return instructions
     end
     
     def number_to_instruction (int)
