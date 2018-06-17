@@ -42,19 +42,8 @@ end
 
 class Memory
     
-    def initialize
-        
-        @memory = [
-            0x01, 0x00, to_ins("1000_0011_0000_0000"), 0x06, 0x00, 0x00, 0x00, 0x00,
-            0x01, 0x02, 0x03, 0x04, 0x05, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0xAA, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-        ]
+    def initialize (instructions)
+        @memory = instructions
     end
     
     def read_memory (address)
@@ -217,6 +206,7 @@ class ALU
             when 15
                 @result = op2 != op1
         end
+        puts @result
     end
     
     def initialize
@@ -355,12 +345,14 @@ class ControlUnit
             return
         end
         
+        puts "MMD: %b" % control
+        
         case control
             when I_ALU
                 @mux_memory_data = MMW_ALURES
-            when I_OVER
+            when I_OVER, I_WRT
                 @mux_memory_data = MMW_OP2
-            when I_DUP, I_WRT
+            when I_DUP
                 @mux_memory_data = MMW_OP1
             when I_AT
                 @mux_memory_data = MMW_ATREAD
@@ -385,7 +377,7 @@ class ControlUnit
         unless control == I_WRT
             @mux_memory_address = MMA_SP
         else
-            @mux_memory_address = MMA_OP2
+            @mux_memory_address = MMA_OP1
         end
         
     end
@@ -446,7 +438,7 @@ class ControlUnit
             when I_JUMP
                 @mux_jump_address = MJA_OP1
             else
-                @mux_jump_address = MJA_OP2COMP
+                @mux_jump_address = MJA_OP2
         end
         
     end
@@ -521,13 +513,16 @@ def to_ins (value)
     value.gsub("_", "").to_i(2)
 end
 
+require '.\init_memory.rb'
+include InitMemory
+
+=begin
+
 $clock = Clock.new
-$memory = Memory.new
+$memory = Memory.new(InitMemory::create_memory_array)
 $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
-
-=begin
 
 puts "", "##### Clock Tests ####"
 
@@ -564,7 +559,7 @@ puts "", "#### END INDIVIDUAL TESTS ####", ""
 =end
 
 $clock = Clock.new
-$memory = Memory.new
+$memory = Memory.new(InitMemory::create_memory_array)
 $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
@@ -670,7 +665,6 @@ while true
     
     w_at_data = threads[0].value
     w_register_read = threads[1].value
-    puts "@ #{w_at_data}"
     
     # Combinational stuff
     
@@ -697,6 +691,8 @@ while true
     w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
     
     $clock.next_cycle
+    
+    puts "WRITEME: #{w_mux_memory_data}"
     
     ###############################
     ###### Clock F - Write 3 ######

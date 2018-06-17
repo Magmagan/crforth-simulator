@@ -129,7 +129,3 @@ module InitMemory
     end
     
 end
-
-include InitMemory
-
-InitMemory::create_memory_array
