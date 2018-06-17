@@ -1,57 +1,80 @@
 module InitMemory
     
-    INSTRUCTIONS = {
-        'PUSH' => '0PPP_PPPP_PPPP_PPPP',
-        'ALU'  => '1000_0000_AAAA_0000',
-        'JUMP' => '1000_0011_0000_000S',
-        'IF'   => '1000_0010_0000_000S',
-        'DUP'  => '1000_0111_0000_000S',
-        'OVER' => '1000_0101_0000_000S',
-        'DROP' => '1000_0110_0000_000S',
-        '@'    => '1000_1001_0000_000S',
-        '!'    => '1000_1100_0000_000S',
-        'R>'   => '1000_1011_RRRR_000S',
-        'R<'   => '1000_1110_RRRR_000S',
-        'NOP'  => '1000_0000_0000_000S',
-        'HALT' => '1111_1111_XXXX_XXXS',
-    }
+    require '.\crsymbols.rb'
     
-    REGISTERS = {
-        'PC'  => '0000',
-        'PSP' => '0001',
-        'RSP' => '0010',
-        'OfR' => '0011',
-        'Gr0' => '0100',
-        'Gr1' => '0101',
-        'Gr2' => '0110',
-        'Gr3' => '0111',
-        'Gr4' => '1000',
-        'Gr5' => '1001',
-        'Gr6' => '1010',
-        'Gr7' => '1011',
-        'Gr8' => '1100',
-        'Gr9' => '1101',
-        'GrA' => '1110',
-        'GrB' => '1111',
-    }
+    def create_memory_array
+        puts "END to end."
+        
+        # Get instructions from user input
+        input_string = ""
+        while !input_string.include?('END')
+            input_string += ' ' + $stdin.gets.chomp
+        end
+        
+        # Before tokenizing, convert all numbers of form -n to
+        # NEGATE PUSH n
+        input_string = input_string.gsub(/\-([0-9]+) /, 
+                                        '\1 NEGATE ')
+        
+        puts input_string
+        
+        # Tokenize and remove END
+        tokens = input_string.split()
+        tokens.pop()
+        
+        # Convert tokens into instructions
+        instructions = convert(tokens)
+        
+    end
     
-    ALU_OPERATIONS = {
-        '0='     => '0000',
-        'ABS'    => '0001',
-        'NEGATE' => '0010',
-        'INVERT' => '0011',
-        '+'      => '0100',
-        '-'      => '0101',
-        '*'      => '0110',
-        'LSHIFT' => '0111',
-        'RSHIFT' => '1000',
-        'AND'    => '1001',
-        'OR'     => '1010',
-        'XOR'    => '1011',
-        '<'      => '1100',
-        '<='     => '1101',
-        '='      => '1110',
-        '<>'     => '1111',
-    }
+    def convert (tokens)
+        
+        instructions = []
+        last_stack = CrSymbols::REGISTERS['PSP']
+        
+        tokens.each do |token|
+            
+            # Check if token defines SSR register
+            begin
+                if token == 'PSP' || token == 'RSP'
+                    last_stack = CrSymbols::REGISTERS[token]
+                    next
+                end
+            end
+            
+            # Check if token fits instructions hash
+            begin
+                if CrSymbols::REGISTERS.key?()
+            end
+            
+            # Try converting an immediate value (push operation)
+            begin
+                number = Integer(token)
+                instruction = number_to_instruction(number) 
+                instructions.push(instruction)
+                next # Processing done, go to next token
+            rescue ArgumentError
+            end
+            
+            
+            
+            instructions.push(token)
+        end
+        
+        puts "", instructions
+        
+    end
+    
+    def number_to_instruction (int)
+        int = "%016b" % int
+        int.insert(12, '_')
+        int.insert(8, '_')
+        int.insert(4, '_')
+        return int
+    end
     
 end
+
+include InitMemory
+
+InitMemory::create_memory_array
