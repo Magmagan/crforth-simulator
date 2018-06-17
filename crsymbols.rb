@@ -54,7 +54,7 @@ module CrSymbols
         '<>'     => '1111',
     }
     
-    def to_ins (value)
+    def self.to_ins (value)
         value.gsub("_", "").to_i(2)
     end
     
