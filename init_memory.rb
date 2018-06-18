@@ -1,6 +1,6 @@
 module InitMemory
     
-    require '.\crsymbols.rb'
+    require './crsymbols.rb'
     
     def create_memory_array
         puts "END to end."

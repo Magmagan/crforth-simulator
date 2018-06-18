@@ -413,14 +413,14 @@ class ControlUnit
         end
         
         if @instruction[15] == 0 
-            @register_address_write = false
+            @register_write_enabled = false
             return
         end
         
         unless control == I_RW
-            @register_address_write = false
+            @register_write_enabled = false
         else
-            @register_address_write = true
+            @register_write_enabled = true
         end
     end
     
@@ -518,7 +518,7 @@ def to_ins (value)
     value.gsub("_", "").to_i(2)
 end
 
-require '.\init_memory.rb'
+require './init_memory.rb'
 include InitMemory
 
 =begin
