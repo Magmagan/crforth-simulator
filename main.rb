@@ -218,7 +218,7 @@ end
 class ControlUnit
     
     # Define instruction name constants
-    I_NOP  = 0  #0000 Not working/not implemented
+    I_NOP  = 0  #0000 Working!
     I_ALU  = 1  #0001 Working!
     I_JUMP = 3  #0011 Working!
     I_IF   = 2  #0010 Working!
@@ -229,7 +229,7 @@ class ControlUnit
     I_WRT  = 12 #1100 ! Working!
     I_RW   = 14 #1110 R< Not working/not implemented
     I_RR   = 11 #1011 R> Not working/not implemented
-    I_HALT = 15 #1111 Not working/not implemented
+    I_HALT = 15 #1111 Working!
     
     # Define constants for memory write mux
     MMW_INSTRUCTION = 0
@@ -247,6 +247,7 @@ class ControlUnit
     MJA_PC  = 0
     MJA_OP1 = 1
     MJA_OP2 = 2
+    MJA_HALT = 3
     
     attr_reader :set_ssr
     attr_reader :alu_control
@@ -439,6 +440,8 @@ class ControlUnit
                 @mux_jump_address = MJA_OP1
             when I_IF
                 @mux_jump_address = MJA_OP2
+            when I_HALT
+                @mux_jump_address = MJA_HALT
             else
                 @mux_jump_address = MJA_PC
         end
@@ -688,6 +691,7 @@ while true
                      when ControlUnit::MJA_PC then $registers.pc + 1
                      when ControlUnit::MJA_OP1 then w_op1
                      when ControlUnit::MJA_OP2 then w_op1 == 0 ? w_op2 : $registers.pc + 1
+                     when ControlUnit::MJA_HALT then $registers.pc
                      end
     
     w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6

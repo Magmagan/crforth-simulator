@@ -13,7 +13,7 @@ module CrSymbols
         'R>'   => '1000_1011_RRRR_000S',
         'R<'   => '1000_1110_RRRR_000S',
         'NOP'  => '1000_0000_0000_000S',
-        'HALT' => '1111_1111_XXXX_XXXS',
+        'HALT' => '1111_1111_0000_000S',
     }
     
     REGISTERS = {
