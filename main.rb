@@ -227,8 +227,8 @@ class ControlUnit
     I_DROP = 6  #0110 Working!
     I_AT   = 9  #1001 @ Working!
     I_WRT  = 12 #1100 ! Working!
-    I_RW   = 14 #1110 R< Not working/not implemented
-    I_RR   = 11 #1011 R> Not working/not implemented
+    I_RW   = 14 #1110 R< Working!
+    I_RR   = 11 #1011 R> Working!
     I_HALT = 15 #1111 Working!
     
     # Define constants for memory write mux
@@ -327,7 +327,7 @@ class ControlUnit
         end
         
         case control
-            when I_ALU, I_OVER, I_DUP, I_AT, I_WRT
+            when I_ALU, I_OVER, I_DUP, I_AT, I_WRT, I_RR
                 @write_enabled = true
             else
                 @write_enabled = false
@@ -381,6 +381,31 @@ class ControlUnit
             @mux_memory_address = MMA_OP1
         end
         
+    end
+    
+    def calculate_register_address_read
+        control = 0
+        (8...12).each do |bit|
+            control += @instruction[bit] * 2**(bit - 8)
+        end
+        
+        if @instruction[15] == 0 
+            @register_address_read = 0
+            return
+        end
+        
+        address = 0
+        (4...8).each do |bit|
+            address += @instruction[bit] * 2**(bit - 4)
+        end
+        
+        unless control == I_RR
+            @register_address_read = 0
+        else
+            @register_address_read = address
+        end
+        
+        puts "Instruction: #{@instruction}\nAddress: #{address}"
     end
     
     def calculate_register_address_write
@@ -461,6 +486,7 @@ class ControlUnit
         calculate_write_enabled
         calculate_mux_memory_data
         calculate_mux_memory_address
+        calculate_register_address_read
         calculate_register_address_write
         calculate_register_write_enabled
         calculate_mux_jump_address
@@ -594,11 +620,12 @@ while true
     w_write_enabled = $control_unit.write_enabled
     w_mux_memory_data = $control_unit.mux_memory_data
     w_mux_memory_address = $control_unit.mux_memory_address
+    w_register_address_read = $control_unit.register_address_read
     w_register_address_write = $control_unit.register_address_write
     w_register_write_enabled = $control_unit.register_write_enabled
     w_mux_jump_address = $control_unit.mux_jump_address
     
-    puts "v Look v", w_sp_change
+    puts "#{w_register_address_read} 1112"
     
     $clock.next_cycle
     
@@ -665,11 +692,13 @@ while true
     
     threads = [
         Thread.new{Read_At(w_op1)},
-        Thread.new{Read_Registers(0)}
+        Thread.new{Read_Registers(w_register_address_read)}
     ]
     
     w_at_data = threads[0].value
     w_register_read = threads[1].value
+    
+    puts "Heyo #{w_register_read}"
     
     # Combinational stuff
     
@@ -698,7 +727,7 @@ while true
     
     $clock.next_cycle
     
-    puts "WRITEME: #{w_mux_memory_data}"
+    puts "WRITEME: #{w_mux_memory_data}, #{w_mux_memory_address}"
     
     ###############################
     ###### Clock F - Write 3 ######
