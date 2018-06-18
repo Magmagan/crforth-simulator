@@ -61,7 +61,7 @@ module InitMemory
             # Check if token is a register operation R<
             begin
                 if token.include?('<') && CrSymbols::REGISTERS.key?(token.sub!(/</, ''))
-                    instruction = CrSymbols::INSTRUCTIONS['R>'] + ""
+                    instruction = CrSymbols::INSTRUCTIONS['R<'] + ""
                     instruction = format(instruction, last_stack, token)
                     instructions.push(instruction)
                     next
