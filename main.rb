@@ -437,8 +437,10 @@ class ControlUnit
         case control
             when I_JUMP
                 @mux_jump_address = MJA_OP1
-            else
+            when I_IF
                 @mux_jump_address = MJA_OP2
+            else
+                @mux_jump_address = MJA_PC
         end
         
     end
