@@ -51,7 +51,6 @@ class Memory
     end
     
     def write_memory (address, value, write_enabled)
-        puts "Write_memory, address: #{address}"
         if write_enabled
             @memory[address] = value
         end
@@ -155,7 +154,7 @@ class ALU
         (0...4).each do |bit|
             control += alu_control[bit] * 2**bit
         end
-        puts "Computing #{op2} #{control} #{op1}"
+        
         case control
             # 0000
             when 0
@@ -206,7 +205,6 @@ class ALU
             when 15
                 @result = op2 != op1
         end
-        puts @result
     end
     
     def initialize
@@ -346,8 +344,6 @@ class ControlUnit
             return
         end
         
-        puts "MMD: %b" % control
-        
         case control
             when I_ALU
                 @mux_memory_data = MMW_ALURES
@@ -404,8 +400,6 @@ class ControlUnit
         else
             @register_address_read = address
         end
-        
-        puts "Instruction: #{@instruction}\nAddress: #{address}"
     end
     
     def calculate_register_address_write
@@ -526,13 +520,11 @@ module VirtualMethods
     end
     
     def Write_Memory (address, value, write_enabled)
-        puts "Virtual address: #{address}"
         $memory.write_memory(address, value, write_enabled)
     end
     
     def Write_Registers (address, value, write_enabled,
                          pc_value = 0, pc_write_enabled = false)
-        puts "WR: #{pc_value}, #{pc_write_enabled}"
         $registers.write_register(address, value, write_enabled, pc_value, pc_write_enabled)
     end
     
@@ -608,8 +600,6 @@ while true
     ]
     
     w_instruction = threads[0].value
-    puts "PC: #{$registers.pc}"
-    puts "w_instruction: #{w_instruction}"
     
     # Combinational
 
@@ -624,8 +614,6 @@ while true
     w_register_address_write = $control_unit.register_address_write
     w_register_write_enabled = $control_unit.register_write_enabled
     w_mux_jump_address = $control_unit.mux_jump_address
-    
-    puts "#{w_register_address_read} 1112"
     
     $clock.next_cycle
     
@@ -656,7 +644,6 @@ while true
     ]
     
     w_op1, w_op2 = threads[0].value
-    puts "OP1: #{w_op1}, OP2: #{w_op2}"
     
     # Combinational
     
@@ -698,8 +685,6 @@ while true
     w_at_data = threads[0].value
     w_register_read = threads[1].value
     
-    puts "Heyo #{w_register_read}"
-    
     # Combinational stuff
     
     w_memory_write_value = case w_mux_memory_data
@@ -727,15 +712,11 @@ while true
     
     $clock.next_cycle
     
-    puts "WRITEME: #{w_mux_memory_data}, #{w_mux_memory_address}"
-    
     ###############################
     ###### Clock F - Write 3 ######
     ###############################
     
     # Sequential stuff
-    
-    puts $memory
     
     threads = [
         Thread.new{Write_Memory(w_memory_address_value, w_memory_write_value, w_write_enabled)},
