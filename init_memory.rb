@@ -15,14 +15,14 @@ module InitMemory
         # NEGATE PUSH n
         input_string = input_string.gsub(/\-([0-9]+) /, '\1 NEGATE ')
         
-        puts input_string
-        
         # Tokenize and remove END
         tokens = input_string.split()
         tokens.pop()
         
         # Convert tokens into instructions
         instructions = convert(tokens)
+        
+        # puts instructions
         
         # Convert instructions to integers and resize array to 256.
         instructions.map! {|i| CrSymbols.to_ins(i)}
@@ -129,3 +129,6 @@ module InitMemory
     end
     
 end
+
+# include InitMemory
+# InitMemory::create_memory_array
