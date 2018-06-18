@@ -490,8 +490,8 @@ end
 
 module VirtualMethods
     
-    def Instruction_Fetch
-        return $memory.read_memory($registers.pc).first
+    def Instruction_Fetch (address)
+        return $memory.read_memory(address).first
     end
     
     def Update_SSR (value)
@@ -593,10 +593,13 @@ while true
     ###### Clock A - Read  1 ######
     ###############################
     
+    w_pc = $registers.pc
+    w_pc_offset = w_pc+$registers.ofr
+    
     # Sequential stuff
     
     threads = [
-        Thread.new{Instruction_Fetch()}
+        Thread.new{Instruction_Fetch(w_pc_offset)}
     ]
     
     w_instruction = threads[0].value
@@ -630,6 +633,8 @@ while true
     # Combinational
     
     w_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
+    # Offset
+    w_address_offset = w_address + $registers.ofr
     
     $clock.next_cycle
     
@@ -640,7 +645,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_Operands(w_address)}
+        Thread.new{Read_Operands(w_address_offset)}
     ]
     
     w_op1, w_op2 = threads[0].value
@@ -668,6 +673,8 @@ while true
     # Combinational stuff
     
     w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
+    # Offset
+    w_op1_offset = w_op1 + $registers.ofr
     
     $clock.next_cycle
     
@@ -678,7 +685,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_At(w_op1)},
+        Thread.new{Read_At(w_op1_offset)},
         Thread.new{Read_Registers(w_register_address_read)}
     ]
     
@@ -709,6 +716,8 @@ while true
                      end
     
     w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
+    # Offset
+    w_memory_address_value_offset = w_memory_address_value + $registers.ofr
     
     $clock.next_cycle
     
@@ -719,7 +728,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Write_Memory(w_memory_address_value, w_memory_write_value, w_write_enabled)},
+        Thread.new{Write_Memory(w_memory_address_value_offset, w_memory_write_value, w_write_enabled)},
         Thread.new{Write_Registers(w_register_address_write, w_op1, w_register_write_enabled,
                                    w_jump_address, w_jump_enable)}
     ]
