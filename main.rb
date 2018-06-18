@@ -218,18 +218,18 @@ end
 class ControlUnit
     
     # Define instruction name constants
-    I_NOP  = 0  #0000
-    I_ALU  = 1  #0001
-    I_JUMP = 3  #0011
-    I_IF   = 2  #0010
-    I_DUP  = 7  #0111
-    I_OVER = 5  #0101
-    I_DROP = 6  #0110
-    I_AT   = 9  #1001 @
-    I_WRT  = 12 #1100 !
-    I_RW   = 14 #1110 R<
-    I_RR   = 11 #1011 R>
-    I_HALT = 15 #1111
+    I_NOP  = 0  #0000 Not working/not implemented
+    I_ALU  = 1  #0001 Working!
+    I_JUMP = 3  #0011 Working!
+    I_IF   = 2  #0010 Working!
+    I_DUP  = 7  #0111 Working!
+    I_OVER = 5  #0101 Working!
+    I_DROP = 6  #0110 Working!
+    I_AT   = 9  #1001 @ Working!
+    I_WRT  = 12 #1100 ! Working!
+    I_RW   = 14 #1110 R< Not working/not implemented
+    I_RR   = 11 #1011 R> Not working/not implemented
+    I_HALT = 15 #1111 Not working/not implemented
     
     # Define constants for memory write mux
     MMW_INSTRUCTION = 0
