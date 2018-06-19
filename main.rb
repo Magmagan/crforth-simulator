@@ -247,16 +247,16 @@ class ControlUnit
     MJA_OP2 = 2
     MJA_HALT = 3
     
-    attr_reader :set_ssr
-    attr_reader :alu_control
-    attr_reader :sp_change
-    attr_reader :write_enabled
-    attr_reader :register_address_read
-    attr_reader :mux_memory_data
-    attr_reader :mux_memory_address
-    attr_reader :register_address_write
-    attr_reader :register_write_enabled
-    attr_reader :mux_jump_address
+    attr_reader :set_ssr                        # Defines if SSR value, either from instruction or SSR itself
+    attr_reader :alu_control                    # Defines the 4 bits that is used to select the ALU operation
+    attr_reader :sp_change                      # Calculates Δsp
+    attr_reader :write_enabled                  # Enables/disables memory write
+    attr_reader :mux_memory_data                # Decides where the memory write data should come from
+    attr_reader :mux_memory_address             # Decides at what address should data be written to memory
+    attr_reader :register_address_read          # Calculates what register should be read
+    attr_reader :register_address_write         # Calculates what register should be written to
+    attr_reader :register_write_enabled         # Enables/disables register write
+    attr_reader :mux_jump_address               # JUMP
     
     def calculate_ssr
         @set_ssr = @instruction[15] == 1 ? @instruction[0] : $registers.ssr
@@ -587,6 +587,29 @@ $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
 
+=begin WIRE DESCRIPTIONS
+
+w_pc                            # Wire from registers[pc]
+w_pc_offset                     # PC + OfR for relative jumping
+w_instruction                   # Contains instruction read from memory, sends to Control Unit
+w_stack_read_address            # Contains PSP or RSP address, depending on SSR
+w_stack_read_address_offset     # SP + OfR for relative stack reading
+w_op1                           # Op1, top of stack
+w_op1_offset                    # Op1 + OfR
+w_op2                           # Op2, second item of the stack
+w_sp                            # Contains name of the stack to be updated with Δsp
+w_alu_result                    # Contains result of ALU operation
+w_sp_address                    # Contains address of the stack for writing to memory
+w_at_data                       # Contains data read from @ read
+w_register_read                 # Contains data read from register bank, R>
+w_memory_write_value            # What will be written to memory
+w_memory_address_value          # What memory address will data be written to memory
+w_memory_address_value_offset   # Memory address adjusted for relative addressing
+w_jump_address                  # What should PC be updated to (no OfR necessary)
+w_jump_enable                   # Only write to PC on Clock E and F
+
+=end
+
 while true
 
     ###############################
@@ -607,7 +630,7 @@ while true
     # Combinational
 
     $control_unit.update(w_instruction)
-    w_SSR = $control_unit.set_ssr
+    w_set_ssr = $control_unit.set_ssr
     w_alu_control = $control_unit.alu_control
     w_sp_change = $control_unit.sp_change
     w_write_enabled = $control_unit.write_enabled
@@ -627,14 +650,13 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Update_SSR(w_SSR)}
+        Thread.new{Update_SSR(w_set_ssr)}
     ]
     
     # Combinational
     
-    w_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
-    # Offset
-    w_address_offset = w_address + $registers.ofr
+    w_stack_read_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
+    w_stack_read_address_offset = w_stack_read_address + $registers.ofr
     
     $clock.next_cycle
     
@@ -645,7 +667,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_Operands(w_address_offset)}
+        Thread.new{Read_Operands(w_stack_read_address_offset)}
     ]
     
     w_op1, w_op2 = threads[0].value
@@ -673,7 +695,6 @@ while true
     # Combinational stuff
     
     w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
-    # Offset
     w_op1_offset = w_op1 + $registers.ofr
     
     $clock.next_cycle
@@ -716,7 +737,6 @@ while true
                      end
     
     w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
-    # Offset
     w_memory_address_value_offset = w_memory_address_value + $registers.ofr
     
     $clock.next_cycle
