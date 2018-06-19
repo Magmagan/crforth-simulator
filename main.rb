@@ -46,13 +46,24 @@ class Memory
         @memory = instructions
     end
     
-    def read_memory (address)
-        [@memory[address], @memory[address - 1]]
+    def posedge_ace (address)
+        a = [@memory[address], @memory[address - 1]]
+        puts "ACE: #{a}"
+        return a
     end
     
-    def write_memory (address, value, write_enabled)
+    def posedge_f (address, value, write_enabled)
         if write_enabled
             @memory[address] = value
+        end
+    end
+    
+    def memory (clock, address, value, write_enabled)
+        case clock
+        when Clock::A, Clock::C, Clock::E
+            return posedge_ace(address)
+        when Clock::F
+            posedge_f(address, value, write_enabled)
         end
     end
     
@@ -498,8 +509,10 @@ module VirtualMethods
         $registers.ssr = value
     end
     
-    def Read_Operands (address)
-        return $memory.read_memory(address)
+    def Read_Operands (address, value = 0, write_enabled = 0)
+        a = $memory.memory($clock.cycle, address, value, write_enabled)
+        puts a
+        return a
     end
     
     def Compute_ALU (op1, op2, alu_control)
@@ -520,7 +533,7 @@ module VirtualMethods
     end
     
     def Write_Memory (address, value, write_enabled)
-        $memory.write_memory(address, value, write_enabled)
+        $memory.memory($clock.cycle, address, value, write_enabled)
     end
     
     def Write_Registers (address, value, write_enabled,
