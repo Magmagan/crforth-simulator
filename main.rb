@@ -119,39 +119,26 @@ class Registers
         @ssr
     end
     
-    def read_register (address)
-        @registers[address]
-    end
-    
     def posedge_ace (address)
         @registers[address]
-    end
-    
-    def ssr= (value)
-        @ssr = value == 0 || value == 1 ? value : @ssr
     end
     
     def posedge_b (value)
         @ssr = value == 0 || value == 1 ? value : @ssr
     end
     
-    def write_register (address, value, write_enabled, pc_value, pc_write_enabled)
-        if write_enabled
-            @registers[address] = value            
-        end
-        # Only on clock F
-        if pc_write_enabled && (address != 0 || !write_enabled)
-            @registers[PC] = pc_value
-        end
-    end
-    
     def posedge_df (clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
-        if write_enabled
-            @registers[address] = value            
-        end
-        # If we're not already writing to PC with R<, update PC.
-        if clock_cycle == 6 && pc_write_enabled && (address != 0 || !write_enabled)
-            @registers[PC] = pc_value
+        case clock_cycle
+        when Clock::D
+            @registers[address] = value
+        when Clock::F
+            if write_enabled
+                @registers[address] = value
+            end
+            # If we're not already writing to PC with R<, update PC.
+            if clock_cycle == 6 && pc_write_enabled && (address != 0 || !write_enabled)
+                @registers[PC] = pc_value
+            end
         end
     end
     
@@ -547,16 +534,16 @@ module VirtualMethods
     end
     
     def Read_Registers (address)
-        return $registers.read_register(address)
+        return $registers.registers($clock.cycle, address, 0, 0, 0, 0, 0)
     end
     
     def Write_Memory (address, value, write_enabled)
         $memory.memory($clock.cycle, address, value, write_enabled)
     end
     
-    def Write_Registers (address, value, write_enabled,
+    def Write_Registers (address, value, ssr_value, write_enabled,
                          pc_value = 0, pc_write_enabled = false)
-        $registers.write_register(address, value, write_enabled, pc_value, pc_write_enabled)
+        $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
 end
@@ -720,7 +707,7 @@ while true
     
     threads = [
         Thread.new{Compute_ALU(w_op1, w_op2, w_alu_control)},
-        Thread.new{Write_Registers(w_sp_addr, w_sp_value, true)},
+        Thread.new{Write_Registers(w_sp_addr, w_sp_value, true, w_set_ssr)},
     ]
     
     w_alu_result = threads[0].value
@@ -783,7 +770,7 @@ while true
     
     threads = [
         Thread.new{Write_Memory(w_memory_address_value_offset, w_memory_write_value, w_write_enabled)},
-        Thread.new{Write_Registers(w_register_address_write, w_op1, w_register_write_enabled,
+        Thread.new{Write_Registers(w_register_address_write, w_op1, w_set_ssr, w_register_write_enabled,
                                    w_jump_address, w_jump_enable)}
     ]
     
