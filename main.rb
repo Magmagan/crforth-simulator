@@ -512,8 +512,8 @@ end
 
 module VirtualMethods
     
-    def Instruction_Fetch (address)
-        return $memory.memory($clock.cycle, address, 0, 0).first
+    def Instruction_Fetch (address, value, write_enabled)
+        return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
     
     def Update_SSR (address, value, ssr_value, write_enabled,
@@ -521,7 +521,7 @@ module VirtualMethods
         $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
-    def Read_Operands (address, value = 0, write_enabled = 0)
+    def Read_Operands (address, value, write_enabled)
         return $memory.memory($clock.cycle, address, value, write_enabled)
     end
     
@@ -530,8 +530,8 @@ module VirtualMethods
         return $alu.result
     end
     
-    def Read_At (address)
-        return $memory.memory($clock.cycle, address, 0, 0).first
+    def Read_At (address, value, write_enabled)
+        return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
     
     def Read_Registers (address, value, ssr_value, write_enabled,
@@ -687,7 +687,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Instruction_Fetch($w_pc_offset)}
+        Thread.new{Instruction_Fetch($w_pc_offset, $w_memory_write_value, $w_write_enabled)},
     ]
     
     $w_instruction = threads[0].value
@@ -706,7 +706,7 @@ while true
     
     threads = [
         Thread.new{Update_SSR($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
-                              $w_jump_address, $w_jump_enable)}
+                              $w_jump_address, $w_jump_enable)},
     ]
     
     threads[0].join
@@ -724,7 +724,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_Operands($w_stack_read_address_offset)}
+        Thread.new{Read_Operands($w_stack_read_address_offset, $w_memory_write_value, $w_write_enabled)},
     ]
     
     $w_op1, $w_op2 = threads[0].value
@@ -766,9 +766,9 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_At($w_op1_offset)},
+        Thread.new{Read_At($w_op1_offset, $w_memory_write_value, $w_write_enabled)},
         Thread.new{Read_Registers($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
-                                  $w_jump_address, $w_jump_enable)}
+                                  $w_jump_address, $w_jump_enable)},
     ]
     
     $w_at_data = threads[0].value
@@ -789,7 +789,7 @@ while true
     threads = [
         Thread.new{Write_Memory($w_memory_address_value_offset, $w_memory_write_value, $w_write_enabled)},
         Thread.new{Write_Registers($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
-                                   $w_jump_address, $w_jump_enable)}
+                                   $w_jump_address, $w_jump_enable)},
     ]
     
     threads.each {|thread| thread.join }
