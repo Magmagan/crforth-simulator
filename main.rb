@@ -47,9 +47,7 @@ class Memory
     end
     
     def posedge_ace (address)
-        a = [@memory[address], @memory[address - 1]]
-        puts "ACE: #{a}"
-        return a
+        [@memory[address], @memory[address - 1]]
     end
     
     def posedge_f (address, value, write_enabled)
@@ -147,22 +145,25 @@ class Registers
         end
     end
     
-    def update_sp (Δ, sp)
-        @registers[sp] += Δ
+    def posedge_df (clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
+        if write_enabled
+            @registers[address] = value            
+        end
+        # If we're not already writing to PC with R<, update PC.
+        if clock_cycle == 6 && pc_write_enabled && (address != 0 || !write_enabled)
+            @registers[PC] = pc_value
+        end
     end
     
-    def posedge_df (clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
-        if clock_cycle == Clock::D
-            @registers[sp] += Δ
-        end
-        if clock_cycle == Clock::F
-            if write_enabled
-                @registers[address] = value            
-            end
-            # If we're not already writing to PC with R<, update PC.
-            if pc_write_enabled && (address != 0 || !write_enabled)
-                @registers[PC] = pc_value
-            end
+    def registers (clock_cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
+        puts "Value: #{ssr_value}, C: #{clock_cycle}"
+        case clock_cycle
+        when Clock::A, Clock::C, Clock::E
+            return posedge_ace(address)
+        when Clock::B
+            posedge_b(ssr_value)
+        when Clock::D, Clock::F
+            posedge_df(clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
         end
     end
     
@@ -293,7 +294,7 @@ class ControlUnit
     attr_reader :mux_jump_address               # JUMP
     
     def calculate_ssr
-        @set_ssr = @instruction[15] == 1 ? @instruction[0] : $registers.ssr
+        @set_ssr = @instruction[15] == 1 ? @instruction[0] : 2
     end
     
     def calculate_alu_control
@@ -529,7 +530,7 @@ module VirtualMethods
     end
     
     def Update_SSR (value)
-        $registers.ssr = value
+        $registers.registers($clock.cycle, 0, 0, value, 0, 0, 0)
     end
     
     def Read_Operands (address, value = 0, write_enabled = 0)
@@ -682,6 +683,8 @@ while true
     threads = [
         Thread.new{Update_SSR(w_set_ssr)}
     ]
+    
+    threads[0].join
     
     # Combinational
     
