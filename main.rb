@@ -546,6 +546,48 @@ module VirtualMethods
         $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
+    def Combinational
+        $control_unit.update($w_instruction)
+        $w_pc = $registers.pc
+        $w_pc_offset = $w_pc+$registers.ofr       
+        $w_set_ssr = $control_unit.set_ssr
+        $w_alu_control = $control_unit.alu_control
+        $w_sp_change = $control_unit.sp_change
+        $w_write_enabled = $control_unit.write_enabled
+        $w_mux_memory_data = $control_unit.mux_memory_data
+        $w_mux_memory_address = $control_unit.mux_memory_address
+        $w_register_address_read = $control_unit.register_address_read
+        $w_register_address_write = $control_unit.register_address_write
+        $w_register_write_enabled = $control_unit.register_write_enabled
+        $w_mux_jump_address = $control_unit.mux_jump_address
+        $w_stack_read_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
+        $w_stack_read_address_offset = $w_stack_read_address + $registers.ofr
+        $w_sp_addr = $registers.ssr == 0 ? Registers::PSP : Registers::RSP
+        $w_sp_value = $registers.ssr == 0 ? $registers.psp + $w_sp_change : $registers.rsp + $w_sp_change
+        $w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
+        $w_op1_offset = $w_op1 + $registers.ofr
+        $w_memory_write_value = case $w_mux_memory_data
+                                when ControlUnit::MMW_INSTRUCTION then $w_instruction
+                                when ControlUnit::MMW_OP1         then $w_op1
+                                when ControlUnit::MMW_OP2         then $w_op2
+                                when ControlUnit::MMW_ALURES      then $w_alu_result
+                                when ControlUnit::MMW_ATREAD      then $w_at_data
+                                when ControlUnit::MMW_REGREAD     then $w_register_read
+                                end
+        $w_memory_address_value = case $w_mux_memory_address
+                                when ControlUnit::MMA_SP  then $w_sp_address
+                                when ControlUnit::MMA_OP1 then $w_op1
+                                end
+        $w_jump_address = case $w_mux_jump_address
+                        when ControlUnit::MJA_PC then $registers.pc + 1
+                        when ControlUnit::MJA_OP1 then $w_op1
+                        when ControlUnit::MJA_OP2 then $w_op1 == 0 ? $w_op2 : $registers.pc + 1
+                        when ControlUnit::MJA_HALT then $registers.pc
+                        end                            
+        $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
+        $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
+    end
+    
 end
 
 include VirtualMethods
@@ -607,57 +649,52 @@ $alu = ALU.new
 
 =begin WIRE DESCRIPTIONS
 
-w_pc                            # Wire from registers[pc]
-w_pc_offset                     # PC + OfR for relative jumping
-w_instruction                   # Contains instruction read from memory, sends to Control Unit
-w_stack_read_address            # Contains PSP or RSP address, depending on SSR
-w_stack_read_address_offset     # SP + OfR for relative stack reading
-w_op1                           # Op1, top of stack
-w_op1_offset                    # Op1 + OfR
-w_op2                           # Op2, second item of the stack
-w_sp                            # Contains name of the stack to be updated with Δsp
-w_alu_result                    # Contains result of ALU operation
-w_sp_address                    # Contains address of the stack for writing to memory
-w_at_data                       # Contains data read from @ read
-w_register_read                 # Contains data read from register bank, R>
-w_memory_write_value            # What will be written to memory
-w_memory_address_value          # What memory address will data be written to memory
-w_memory_address_value_offset   # Memory address adjusted for relative addressing
-w_jump_address                  # What should PC be updated to (no OfR necessary)
-w_jump_enable                   # Only write to PC on Clock E and F
+$w_pc                            # Wire from registers[pc]
+$w_pc_offset                     # PC + OfR for relative jumping
+$w_instruction                   # Contains instruction read from memory, sends to Control Unit
+$w_stack_read_address            # Contains PSP or RSP address, depending on SSR
+$w_stack_read_address_offset     # SP + OfR for relative stack reading
+$w_op1                           # Op1, top of stack
+$w_op1_offset                    # Op1 + OfR
+$w_op2                           # Op2, second item of the stack
+$w_sp                            # Contains name of the stack to be updated with Δsp
+$w_alu_result                    # Contains result of ALU operation
+$w_sp_address                    # Contains address of the stack for writing to memory
+$w_at_data                       # Contains data read from @ read
+$w_register_read                 # Contains data read from register bank, R>
+$w_memory_write_value            # What will be written to memory
+$w_memory_address_value          # What memory address will data be written to memory
+$w_memory_address_value_offset   # Memory address adjusted for relative addressing
+$w_jump_address                  # What should PC be updated to (no OfR necessary)
+$w_jump_enable                   # Only write to PC on Clock E and F
 
 =end
 
-while true
+# Set up 'initial' control unit
 
+$w_instruction = 0
+$w_op1 = 0
+Combinational()
+
+while true    
+    
+    
+    
     ###############################
     ###### Clock A - Read  1 ######
     ###############################
     
-    w_pc = $registers.pc
-    w_pc_offset = w_pc+$registers.ofr
-    
     # Sequential stuff
     
     threads = [
-        Thread.new{Instruction_Fetch(w_pc_offset)}
+        Thread.new{Instruction_Fetch($w_pc_offset)}
     ]
     
-    w_instruction = threads[0].value
+    $w_instruction = threads[0].value
     
     # Combinational
-
-    $control_unit.update(w_instruction)
-    w_set_ssr = $control_unit.set_ssr
-    w_alu_control = $control_unit.alu_control
-    w_sp_change = $control_unit.sp_change
-    w_write_enabled = $control_unit.write_enabled
-    w_mux_memory_data = $control_unit.mux_memory_data
-    w_mux_memory_address = $control_unit.mux_memory_address
-    w_register_address_read = $control_unit.register_address_read
-    w_register_address_write = $control_unit.register_address_write
-    w_register_write_enabled = $control_unit.register_write_enabled
-    w_mux_jump_address = $control_unit.mux_jump_address
+    
+    Combinational()
     
     $clock.next_cycle
     
@@ -668,15 +705,14 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Update_SSR(w_set_ssr)}
+        Thread.new{Update_SSR($w_set_ssr)}
     ]
     
     threads[0].join
     
     # Combinational
     
-    w_stack_read_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
-    w_stack_read_address_offset = w_stack_read_address + $registers.ofr
+    Combinational()
     
     $clock.next_cycle
     
@@ -687,15 +723,14 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_Operands(w_stack_read_address_offset)}
+        Thread.new{Read_Operands($w_stack_read_address_offset)}
     ]
     
-    w_op1, w_op2 = threads[0].value
+    $w_op1, $w_op2 = threads[0].value
     
     # Combinational
     
-    w_sp_addr = $registers.ssr == 0 ? Registers::PSP : Registers::RSP
-    w_sp_value = $registers.ssr == 0 ? $registers.psp + w_sp_change : $registers.rsp + w_sp_change
+    Combinational()
     
     $clock.next_cycle
     
@@ -706,17 +741,16 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Compute_ALU(w_op1, w_op2, w_alu_control)},
-        Thread.new{Write_Registers(w_sp_addr, w_sp_value, true, w_set_ssr)},
+        Thread.new{Compute_ALU($w_op1, $w_op2, $w_alu_control)},
+        Thread.new{Write_Registers($w_sp_addr, $w_sp_value, true, $w_set_ssr)},
     ]
     
-    w_alu_result = threads[0].value
+    $w_alu_result = threads[0].value
     threads[1].join
     
     # Combinational stuff
     
-    w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
-    w_op1_offset = w_op1 + $registers.ofr
+    Combinational()
     
     $clock.next_cycle
     
@@ -727,38 +761,16 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_At(w_op1_offset)},
-        Thread.new{Read_Registers(w_register_address_read)}
+        Thread.new{Read_At($w_op1_offset)},
+        Thread.new{Read_Registers($w_register_address_read)}
     ]
     
-    w_at_data = threads[0].value
-    w_register_read = threads[1].value
+    $w_at_data = threads[0].value
+    $w_register_read = threads[1].value
     
     # Combinational stuff
     
-    w_memory_write_value = case w_mux_memory_data
-                           when ControlUnit::MMW_INSTRUCTION then w_instruction
-                           when ControlUnit::MMW_OP1         then w_op1
-                           when ControlUnit::MMW_OP2         then w_op2
-                           when ControlUnit::MMW_ALURES      then w_alu_result
-                           when ControlUnit::MMW_ATREAD      then w_at_data
-                           when ControlUnit::MMW_REGREAD     then w_register_read
-                           end
-    
-    w_memory_address_value = case w_mux_memory_address
-                             when ControlUnit::MMA_SP  then w_sp_address
-                             when ControlUnit::MMA_OP1 then w_op1
-                             end
-    
-    w_jump_address = case w_mux_jump_address
-                     when ControlUnit::MJA_PC then $registers.pc + 1
-                     when ControlUnit::MJA_OP1 then w_op1
-                     when ControlUnit::MJA_OP2 then w_op1 == 0 ? w_op2 : $registers.pc + 1
-                     when ControlUnit::MJA_HALT then $registers.pc
-                     end
-    
-    w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
-    w_memory_address_value_offset = w_memory_address_value + $registers.ofr
+    Combinational()
     
     $clock.next_cycle
     
@@ -769,9 +781,9 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Write_Memory(w_memory_address_value_offset, w_memory_write_value, w_write_enabled)},
-        Thread.new{Write_Registers(w_register_address_write, w_op1, w_set_ssr, w_register_write_enabled,
-                                   w_jump_address, w_jump_enable)}
+        Thread.new{Write_Memory($w_memory_address_value_offset, $w_memory_write_value, $w_write_enabled)},
+        Thread.new{Write_Registers($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
+                                   $w_jump_address, $w_jump_enable)}
     ]
     
     threads.each {|thread| thread.join }
@@ -780,6 +792,8 @@ while true
     puts $registers
     
     # Combinational stuff
+    
+    Combinational()
     
     $clock.next_cycle
     
