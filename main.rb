@@ -142,15 +142,14 @@ class Registers
         end
     end
     
-    def registers (clock_cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
-        puts "Value: #{ssr_value}, C: #{clock_cycle}"
+    def registers (clock_cycle, w_address, r_address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
         case clock_cycle
         when Clock::A, Clock::C, Clock::E
-            return posedge_ace(address)
+            return posedge_ace(r_address)
         when Clock::B
             posedge_b(ssr_value)
         when Clock::D, Clock::F
-            posedge_df(clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
+            posedge_df(clock_cycle, w_address, value, write_enabled, pc_value, pc_write_enabled)
         end
     end
     
@@ -516,9 +515,9 @@ module VirtualMethods
         return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
     
-    def Update_SSR (address, value, ssr_value, write_enabled,
+    def Update_SSR (w_address, r_address, value, ssr_value, write_enabled,
                     pc_value = 0, pc_write_enabled = false)
-        $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
+        $registers.registers($clock.cycle, w_address, r_address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
     def Read_Operands (address, value, write_enabled)
@@ -534,18 +533,18 @@ module VirtualMethods
         return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
     
-    def Read_Registers (address, value, ssr_value, write_enabled,
+    def Read_Registers (w_address, r_address, value, ssr_value, write_enabled,
                         pc_value, pc_write_enabled)
-        return $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
+        return $registers.registers($clock.cycle, w_address, r_address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
     def Write_Memory (address, value, write_enabled)
         $memory.memory($clock.cycle, address, value, write_enabled)
     end
     
-    def Write_Registers (address, value, ssr_value, write_enabled,
+    def Write_Registers (w_address, r_address, value, ssr_value, write_enabled,
                          pc_value, pc_write_enabled)
-        $registers.registers($clock.cycle, address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
+        $registers.registers($clock.cycle, w_address, r_address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
     def Combinational
@@ -585,9 +584,24 @@ module VirtualMethods
                           when ControlUnit::MJA_OP1 then $w_op1
                           when ControlUnit::MJA_OP2 then $w_op1 == 0 ? $w_op2 : $registers.pc + 1
                           when ControlUnit::MJA_HALT then $registers.pc
-                          end                            
+                          end
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
         $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
+        $w_comb_memory_read = case $clock.cycle
+                              when Clock::F, Clock::A then $w_pc_offset
+                              when Clock::B, Clock::C then $w_stack_read_address_offset
+                              when Clock::D, Clock::E then $w_op1_offset
+                              end
+        $w_comb_registers_addr_write = case $clock.cycle
+                                       when Clock::F, Clock::A then $w_register_address_write
+                                       when Clock::B, Clock::C then $w_sp_regaddr
+                                       when Clock::D, Clock::E then $w_register_address_write
+                                       end
+        $w_comb_registers_data_write = case $clock.cycle
+                                       when Clock::F, Clock::A then $w_op1
+                                       when Clock::B, Clock::C then $w_sp_value
+                                       when Clock::D, Clock::E then $w_op1
+                                       end
     end
     
 end
@@ -687,7 +701,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Instruction_Fetch($w_pc_offset, $w_memory_write_value, $w_write_enabled)},
+        Thread.new{Instruction_Fetch($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
     ]
     
     $w_instruction = threads[0].value
@@ -705,7 +719,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Update_SSR($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
+        Thread.new{Update_SSR($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                               $w_jump_address, $w_jump_enable)},
     ]
     
@@ -724,7 +738,7 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_Operands($w_stack_read_address_offset, $w_memory_write_value, $w_write_enabled)},
+        Thread.new{Read_Operands($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
     ]
     
     $w_op1, $w_op2 = threads[0].value
@@ -741,12 +755,9 @@ while true
     
     # Sequential stuff
     
-    puts "Supposed to update SP"
-    puts "%d %d" % [$w_sp_address, $w_sp_value]
-    
     threads = [
         Thread.new{Compute_ALU($w_op1, $w_op2, $w_alu_control)},
-        Thread.new{Write_Registers($w_sp_regaddr, $w_sp_value, $w_set_ssr, $w_register_write_enabled,
+        Thread.new{Write_Registers($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                                    $w_jump_address, $w_jump_enable)},
     ]
     
@@ -766,8 +777,8 @@ while true
     # Sequential stuff
     
     threads = [
-        Thread.new{Read_At($w_op1_offset, $w_memory_write_value, $w_write_enabled)},
-        Thread.new{Read_Registers($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
+        Thread.new{Read_At($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
+        Thread.new{Read_Registers($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                                   $w_jump_address, $w_jump_enable)},
     ]
     
@@ -788,7 +799,7 @@ while true
     
     threads = [
         Thread.new{Write_Memory($w_memory_address_value_offset, $w_memory_write_value, $w_write_enabled)},
-        Thread.new{Write_Registers($w_register_address_write, $w_op1, $w_set_ssr, $w_register_write_enabled,
+        Thread.new{Write_Registers($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                                    $w_jump_address, $w_jump_enable)},
     ]
     
@@ -805,5 +816,3 @@ while true
     
     gets
 end
-
-# puts $a
