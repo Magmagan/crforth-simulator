@@ -58,8 +58,8 @@ class Memory
         end
     end
     
-    def memory (clock, address, value, write_enabled)
-        case clock
+    def memory (clock_cycle, address, value, write_enabled)
+        case clock_cycle
         when Clock::A, Clock::C, Clock::E
             return posedge_ace(address)
         when Clock::F
@@ -125,6 +125,18 @@ class Registers
         @registers[address]
     end
     
+    def posedge_ace (address)
+        @registers[address]
+    end
+    
+    def ssr= (value)
+        @ssr = value == 0 || value == 1 ? value : @ssr
+    end
+    
+    def posedge_b (value)
+        @ssr = value == 0 || value == 1 ? value : @ssr
+    end
+    
     def write_register (address, value, write_enabled, pc_value, pc_write_enabled)
         if write_enabled
             @registers[address] = value            
@@ -139,8 +151,19 @@ class Registers
         @registers[sp] += Δ
     end
     
-    def ssr= (value)
-        @ssr = value == 0 || value == 1 ? value : @ssr
+    def posedge_df (clock_cycle, address, value, write_enabled, pc_value, pc_write_enabled)
+        if clock_cycle == Clock::D
+            @registers[sp] += Δ
+        end
+        if clock_cycle == Clock::F
+            if write_enabled
+                @registers[address] = value            
+            end
+            # If we're not already writing to PC with R<, update PC.
+            if pc_write_enabled && (address != 0 || !write_enabled)
+                @registers[PC] = pc_value
+            end
+        end
     end
     
     def to_s
@@ -502,7 +525,7 @@ end
 module VirtualMethods
     
     def Instruction_Fetch (address)
-        return $memory.read_memory(address).first
+        return $memory.memory($clock.cycle, address, 0, 0).first
     end
     
     def Update_SSR (value)
@@ -510,9 +533,7 @@ module VirtualMethods
     end
     
     def Read_Operands (address, value = 0, write_enabled = 0)
-        a = $memory.memory($clock.cycle, address, value, write_enabled)
-        puts a
-        return a
+        return $memory.memory($clock.cycle, address, value, write_enabled)
     end
     
     def Compute_ALU (op1, op2, alu_control)
@@ -520,12 +541,8 @@ module VirtualMethods
         return $alu.result
     end
     
-    def Update_SP (sp_change, sp)
-        $registers.update_sp(sp_change, sp)
-    end
-    
     def Read_At (address)
-        return $memory.read_memory(address).first
+        return $memory.memory($clock.cycle, address, 0, 0).first
     end
     
     def Read_Registers (address)
@@ -687,7 +704,8 @@ while true
     
     # Combinational
     
-    w_sp = $registers.ssr == 0 ? Registers::PSP : Registers::RSP
+    w_sp_addr = $registers.ssr == 0 ? Registers::PSP : Registers::RSP
+    w_sp_value = $registers.ssr == 0 ? $registers.psp + w_sp_change : $registers.rsp + w_sp_change
     
     $clock.next_cycle
     
@@ -699,7 +717,7 @@ while true
     
     threads = [
         Thread.new{Compute_ALU(w_op1, w_op2, w_alu_control)},
-        Thread.new{Update_SP(w_sp_change, w_sp)}
+        Thread.new{Write_Registers(w_sp_addr, w_sp_value, true)},
     ]
     
     w_alu_result = threads[0].value
