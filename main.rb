@@ -136,7 +136,7 @@ class Registers
                 @registers[address] = value
             end
             # If we're not already writing to PC with R<, update PC.
-            if clock_cycle == 6 && pc_write_enabled && (address != 0 || !write_enabled)
+            if pc_write_enabled && (address != 0 || !write_enabled)
                 @registers[PC] = pc_value
             end
         end
