@@ -616,7 +616,7 @@ module VirtualMethods
                                 when ControlUnit::MMW_OP1         then $w_op1
                                 when ControlUnit::MMW_OP2         then $w_op2
                                 when ControlUnit::MMW_ALURES      then $w_alu_result
-                                when ControlUnit::MMW_ATREAD      then $w_at_data
+                                when ControlUnit::MMW_ATREAD      then $w_red_memory
                                 when ControlUnit::MMW_REGREAD     then $w_register_read
                                 end
         $w_memory_address_value = case $w_mux_memory_address
@@ -631,7 +631,14 @@ module VirtualMethods
                           end
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
         $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
-        
+        $w_op1 = case $clock.cycle
+                 when Clock::C, Clock::D then $w_red_memory
+                 else $opregs.op1
+                 end
+        $w_op2 = case $clock.cycle
+                 when Clock::C, Clock::D then $w_red_memory2
+                 else $opregs.op2
+                 end
         $w_instruction = case $clock.cycle
                           when Clock::A, Clock::B then $w_red_memory
                           else $instructionreg.instruction
@@ -727,7 +734,7 @@ $w_op2                           # Op2, second item of the stack
 $w_sp                            # Contains name of the stack to be updated with Δsp
 $w_alu_result                    # Contains result of ALU operation
 $w_sp_address                    # Contains address of the stack for writing to memory
-$w_at_data                       # Contains data read from @ read
+$w_red_memory                    # Contains data read from @ read
 $w_register_read                 # Contains data read from register bank, R>
 $w_memory_write_value            # What will be written to memory
 $w_memory_address_value          # What memory address will data be written to memory
@@ -795,7 +802,7 @@ while true
         Thread.new{Read_Operands($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
     ]
     
-    $w_op1, $w_op2 = threads[0].value
+    $w_red_memory, $w_red_memory2= threads[0].value
     
     # Combinational
     
@@ -838,7 +845,7 @@ while true
                                   $w_jump_address, $w_jump_enable)},
     ]
     
-    $w_at_data = threads[0].value
+    $w_red_memory = threads[0].value
     $w_register_read = threads[1].value
     
     # Combinational stuff
