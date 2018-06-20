@@ -104,7 +104,7 @@ class Registers
     end
     
     def psp
-       @registers[PSP] 
+        @registers[PSP] 
     end
     
     def rsp
@@ -230,6 +230,42 @@ class ALU
     
     def initialize
         @result = 0
+    end
+    
+end
+
+class OPRegs
+    
+    attr_reader :op1, :op2
+    
+    def initialize
+        @op1 = 0
+        @op2 = 0
+    end
+    
+    def opregs(clock_cycle, set_op1, set_op2)
+        case clock_cycle
+        when Clock::D
+            @op1 = set_op1
+            @op2 = set_op2
+        end
+    end
+    
+end
+
+class InstructionReg
+   
+    attr_reader :instruction
+    
+    def initialize
+        @instruction = 0
+    end
+    
+    def instructionreg (clock_cycle, set_instruction)
+        case clock_cycle
+        when Clock::B
+            @instruction = set_instruction
+        end
     end
     
 end
@@ -528,7 +564,7 @@ module VirtualMethods
         $alu.compute(op1, op2, alu_control)
         return $alu.result
     end
-    
+       
     def Read_At (address, value, write_enabled)
         return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
@@ -662,6 +698,8 @@ $memory = Memory.new(InitMemory::create_memory_array)
 $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
+$opregs = OPRegs.new
+$instructionreg = InstructionReg.new
 
 =begin WIRE DESCRIPTIONS
 
