@@ -104,7 +104,7 @@ class Registers
     end
     
     def psp
-        @registers[PSP] 
+       @registers[PSP] 
     end
     
     def rsp
@@ -230,42 +230,6 @@ class ALU
     
     def initialize
         @result = 0
-    end
-    
-end
-
-class OPRegs
-    
-    attr_reader :op1, :op2
-    
-    def initialize
-        @op1 = 0
-        @op2 = 0
-    end
-    
-    def opregs(clock_cycle, set_op1, set_op2)
-        case clock_cycle
-        when Clock::D
-            @op1 = set_op1
-            @op2 = set_op2
-        end
-    end
-    
-end
-
-class InstructionReg
-   
-    attr_reader :instruction
-    
-    def initialize
-        @instruction = 0
-    end
-    
-    def instructionreg (clock_cycle, set_instruction)
-        case clock_cycle
-        when Clock::bank
-            @instruction = set_instruction
-        end
     end
     
 end
@@ -565,10 +529,6 @@ module VirtualMethods
         return $alu.result
     end
     
-    def Write_OPRegs (set_op1, set_op2)
-        $opregs.opregs($clock.cycle, set_op1, set_op2)
-    end
-    
     def Read_At (address, value, write_enabled)
         return $memory.memory($clock.cycle, address, value, write_enabled).first
     end
@@ -627,14 +587,6 @@ module VirtualMethods
                           end
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
         $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
-        $w_op1 = case $clock.cycle
-                 when Clock::C, Clock::D then $w_read_memory
-                 else $opregs.op1
-                 end
-        $w_op2 = case $clock_cycle
-                 when Clock::C, Clock::D then $w_read_memory2
-                 else $opregs.op2
-                 end
         $w_comb_memory_read = case $clock.cycle
                               when Clock::F, Clock::A then $w_pc_offset
                               when Clock::B, Clock::C then $w_stack_read_address_offset
@@ -710,7 +662,6 @@ $memory = Memory.new(InitMemory::create_memory_array)
 $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
-$opregs = OPRegs.new
 
 =begin WIRE DESCRIPTIONS
 
@@ -790,7 +741,7 @@ while true
         Thread.new{Read_Operands($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
     ]
     
-    $w_read_memory, $w_read_memory2 = threads[0].value
+    $w_op1, $w_op2 = threads[0].value
     
     # Combinational
     
@@ -808,7 +759,6 @@ while true
         Thread.new{Compute_ALU($w_op1, $w_op2, $w_alu_control)},
         Thread.new{Write_Registers($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                                    $w_jump_address, $w_jump_enable)},
-        Thread.new{Write_OPRegs($w_read_memory, $w_read_memory2)},
     ]
     
     $w_alu_result = threads[0].value
