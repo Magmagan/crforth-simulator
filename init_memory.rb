@@ -3,11 +3,11 @@ module InitMemory
     require './crsymbols.rb'
     
     def create_memory_array
-        puts "END to end."
+        puts "HALT to end."
         
         # Get instructions from user input
         input_string = ""
-        while !input_string.include?('END')
+        while !input_string.include?('HALT')
             input_string += ' ' + $stdin.gets.chomp
         end
         
@@ -15,11 +15,8 @@ module InitMemory
         # NEGATE PUSH n
         input_string = input_string.gsub(/\-([0-9]+) /, '\1 NEGATE ')
         
-        # Tokenize and remove END
+        # Tokenize and convert tokens into instructions
         tokens = input_string.split()
-        tokens.pop()
-        
-        # Convert tokens into instructions
         instructions = convert(tokens)
         
         # puts instructions
