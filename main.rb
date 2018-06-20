@@ -592,7 +592,7 @@ module VirtualMethods
     end
     
     def Combinational
-        $control_unit.update($w_red_memory)
+        $control_unit.update($w_instruction)
         $w_pc = $registers.pc
         $w_pc_offset = $w_pc+$registers.ofr       
         $w_set_ssr = $control_unit.set_ssr
@@ -612,7 +612,7 @@ module VirtualMethods
         $w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
         $w_op1_offset = $w_op1 + $registers.ofr
         $w_memory_write_value = case $w_mux_memory_data
-                                when ControlUnit::MMW_INSTRUCTION then $w_red_memory
+                                when ControlUnit::MMW_INSTRUCTION then $w_instruction
                                 when ControlUnit::MMW_OP1         then $w_op1
                                 when ControlUnit::MMW_OP2         then $w_op2
                                 when ControlUnit::MMW_ALURES      then $w_alu_result
@@ -632,11 +632,10 @@ module VirtualMethods
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
         $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
         
-        $w_red_memory = case $clock.cycle
+        $w_instruction = case $clock.cycle
                           when Clock::A, Clock::B then $w_red_memory
                           else $instructionreg.instruction
                           end
-        p [$clock.cycle, $w_red_memory, $w_red_memory]
         $w_comb_memory_read = case $clock.cycle
                               when Clock::F, Clock::A then $w_pc_offset
                               when Clock::B, Clock::C then $w_stack_read_address_offset
@@ -719,7 +718,7 @@ $instructionreg = InstructionReg.new
 
 $w_pc                            # Wire from registers[pc]
 $w_pc_offset                     # PC + OfR for relative jumping
-$w_red_memory                   # Contains instruction read from memory, sends to Control Unit
+$w_instruction                   # Contains instruction read from memory, sends to Control Unit
 $w_stack_read_address            # Contains PSP or RSP address, depending on SSR
 $w_stack_read_address_offset     # SP + OfR for relative stack reading
 $w_op1                           # Op1, top of stack
@@ -740,6 +739,7 @@ $w_jump_enable                   # Only write to PC on Clock E and F
 
 # Set up 'initial' control unit
 
+$w_instruction = 0
 $w_red_memory = 0
 $w_op1 = 0
 Combinational()
@@ -757,7 +757,6 @@ while true
     ]
     
     $w_red_memory = threads[0].value
-    $w_red_memory = $w_red_memory
     
     # Combinational
     
