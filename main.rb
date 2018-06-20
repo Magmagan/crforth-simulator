@@ -263,7 +263,7 @@ class InstructionReg
     
     def instructionreg (clock_cycle, set_instruction)
         case clock_cycle
-        when Clock::bank
+        when Clock::B
             @instruction = set_instruction
         end
     end
@@ -556,6 +556,10 @@ module VirtualMethods
         $registers.registers($clock.cycle, w_address, r_address, value, ssr_value, write_enabled, pc_value, pc_write_enabled)
     end
     
+    def Write_InstructionReg (value)
+        $instructionreg.instructionreg($clock.cycle, value)
+    end
+    
     def Read_Operands (address, value, write_enabled)
         return $memory.memory($clock.cycle, address, value, write_enabled)
     end
@@ -627,6 +631,10 @@ module VirtualMethods
                           end
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
         $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
+        $w_instruction = case $clock.cycle
+                         when Clock::A, Clock::B then $w_read_memory
+                         else $instructionreg.instruction
+                         end
         $w_op1 = case $clock.cycle
                  when Clock::C, Clock::D then $w_read_memory
                  else $opregs.op1
@@ -711,6 +719,7 @@ $registers = Registers.new
 $control_unit = ControlUnit.new
 $alu = ALU.new
 $opregs = OPRegs.new
+$instructionreg = InstructionReg.new
 
 =begin WIRE DESCRIPTIONS
 
@@ -739,6 +748,8 @@ $w_jump_enable                   # Only write to PC on Clock E and F
 
 $w_instruction = 0
 $w_op1 = 0
+$w_read_memory = 0
+
 Combinational()
 
 while true    
@@ -753,8 +764,9 @@ while true
         Thread.new{Instruction_Fetch($w_comb_memory_read, $w_memory_write_value, $w_write_enabled)},
     ]
     
-    $w_instruction = threads[0].value
-    
+    $w_read_memory = threads[0].value
+    puts "Q #{$w_read_memory}"
+    puts "C #{$w_instruction}"
     # Combinational
     
     Combinational()
@@ -770,9 +782,11 @@ while true
     threads = [
         Thread.new{Update_SSR($w_comb_registers_addr_write, $w_register_address_read, $w_comb_registers_data_write, $w_set_ssr, $w_register_write_enabled,
                               $w_jump_address, $w_jump_enable)},
+        Thread.new{Write_InstructionReg($w_read_memory)},
     ]
     
     threads[0].join
+    threads[1].join
     
     # Combinational
     
@@ -813,6 +827,7 @@ while true
     
     $w_alu_result = threads[0].value
     threads[1].join
+    threads[2].join
     
     # Combinational stuff
     
