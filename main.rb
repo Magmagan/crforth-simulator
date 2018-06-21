@@ -592,9 +592,10 @@ module VirtualMethods
     end
     
     def Combinational
+        
+        ## Control unit wires
+        
         $control_unit.update($w_instruction)
-        $w_pc = $registers.pc
-        $w_pc_offset = $w_pc+$registers.ofr       
         $w_set_ssr = $control_unit.set_ssr
         $w_alu_control = $control_unit.alu_control
         $w_sp_change = $control_unit.sp_change
@@ -605,32 +606,46 @@ module VirtualMethods
         $w_register_address_write = $control_unit.register_address_write
         $w_register_write_enabled = $control_unit.register_write_enabled
         $w_mux_jump_address = $control_unit.mux_jump_address
+        
+        ## Calculate PC with offset register
+        
+        $w_pc = $registers.pc
+        $w_pc_offset = $w_pc+$registers.ofr
+        
+        ## Calculate stack pointer with offset register
+        
         $w_stack_read_address = if $registers.ssr == 0 then $registers.psp else $registers.rsp end
         $w_stack_read_address_offset = $w_stack_read_address + $registers.ofr
+        
+        # Calculate which stack pointer we are working with
+        
         $w_sp_regaddr = $registers.ssr == 0 ? Registers::PSP : Registers::RSP
+        
+        # Calculate the final value of the current stack pointer, change included
+        
         $w_sp_value = $registers.ssr == 0 ? $registers.psp + $w_sp_change : $registers.rsp + $w_sp_change
+        
+        # Duplicate (or even triple) calculation of stack address...
+        
         $w_sp_address = $registers.ssr == 0 ? $registers.psp : $registers.rsp
+        
+        # Calculate op1 with offset
+        
         $w_op1_offset = $w_op1 + $registers.ofr
-        $w_memory_write_value = case $w_mux_memory_data
-                                when ControlUnit::MMW_INSTRUCTION then $w_instruction
-                                when ControlUnit::MMW_OP1         then $w_op1
-                                when ControlUnit::MMW_OP2         then $w_op2
-                                when ControlUnit::MMW_ALURES      then $w_alu_result
-                                when ControlUnit::MMW_ATREAD      then $w_red_memory
-                                when ControlUnit::MMW_REGREAD     then $w_register_read
-                                end
-        $w_memory_address_value = case $w_mux_memory_address
-                                  when ControlUnit::MMA_SP  then $w_sp_address
-                                  when ControlUnit::MMA_OP1 then $w_op1
-                                  end
-        $w_jump_address = case $w_mux_jump_address
-                          when ControlUnit::MJA_PC then $registers.pc + 1
-                          when ControlUnit::MJA_OP1 then $w_op1
-                          when ControlUnit::MJA_OP2 then $w_op1 == 0 ? $w_op2 : $registers.pc + 1
-                          when ControlUnit::MJA_HALT then $registers.pc
-                          end
+        
+        # Jump only on the 3rd negedge... totally pointless calculation
+        
         $w_jump_enable = $clock.cycle == 5 || $clock.cycle == 6
-        $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
+        
+        # Join read memory with instruction register into one wire
+        
+        $w_instruction = case $clock.cycle
+                          when Clock::A, Clock::B then $w_red_memory
+                          else $instructionreg.instruction
+                          end
+        
+        # Join op1, op2 registers with read memory into wires
+        
         $w_op1 = case $clock.cycle
                  when Clock::C, Clock::D then $w_red_memory
                  else $opregs.op1
@@ -639,20 +654,54 @@ module VirtualMethods
                  when Clock::C, Clock::D then $w_red_memory2
                  else $opregs.op2
                  end
-        $w_instruction = case $clock.cycle
-                          when Clock::A, Clock::B then $w_red_memory
-                          else $instructionreg.instruction
-                          end
+        
+        # Calculate what should be written to memory (cycle F)
+        
+        $w_memory_write_value = case $w_mux_memory_data
+                                when ControlUnit::MMW_INSTRUCTION then $w_instruction
+                                when ControlUnit::MMW_OP1         then $w_op1
+                                when ControlUnit::MMW_OP2         then $w_op2
+                                when ControlUnit::MMW_ALURES      then $w_alu_result
+                                when ControlUnit::MMW_ATREAD      then $w_red_memory
+                                when ControlUnit::MMW_REGREAD     then $w_register_read
+                                end
+        
+        # Calculate where to write to memory, with offset
+        
+        $w_memory_address_value = case $w_mux_memory_address
+                                  when ControlUnit::MMA_SP  then $w_sp_address
+                                  when ControlUnit::MMA_OP1 then $w_op1
+                                  end
+                                  
+        $w_memory_address_value_offset = $w_memory_address_value + $registers.ofr
+        
+        # Missing jump offset??? No, you undocumenting fool.
+        
+        $w_jump_address = case $w_mux_jump_address
+                          when ControlUnit::MJA_PC then $registers.pc + 1
+                          when ControlUnit::MJA_OP1 then $w_op1
+                          when ControlUnit::MJA_OP2 then $w_op1 == 0 ? $w_op2 : $registers.pc + 1
+                          when ControlUnit::MJA_HALT then $registers.pc
+                          end 
+        
+        # What memory should be read?
+        
         $w_comb_memory_read = case $clock.cycle
                               when Clock::F, Clock::A then $w_pc_offset
                               when Clock::B, Clock::C then $w_stack_read_address_offset
                               when Clock::D, Clock::E then $w_op1_offset
                               end
+        
+        # With what address should we write to registers?
+        
         $w_comb_registers_addr_write = case $clock.cycle
                                        when Clock::F, Clock::A then $w_register_address_write
                                        when Clock::B, Clock::C then $w_sp_regaddr
                                        when Clock::D, Clock::E then $w_register_address_write
                                        end
+        
+        # Where the data to write to registers come from?
+        
         $w_comb_registers_data_write = case $clock.cycle
                                        when Clock::F, Clock::A then $w_op1
                                        when Clock::B, Clock::C then $w_sp_value
