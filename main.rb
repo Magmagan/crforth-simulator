@@ -671,48 +671,6 @@ end
 require './init_memory.rb'
 include InitMemory
 
-=begin
-
-$clock = Clock.new
-$memory = Memory.new(InitMemory::create_memory_array)
-$registers = Registers.new
-$control_unit = ControlUnit.new
-$alu = ALU.new
-
-puts "", "##### Clock Tests ####"
-
-puts $clock
-$clock.next_cycle
-$clock.next_cycle
-puts $clock, $clock.cycle
-
-puts "##### Memory Unit Tests ####"
-
-$memory.write_memory(48, 27, true)
-puts $memory
-
-puts "", "##### Control Unit Tests ####"
-
-puts $control_unit.set_ssr
-$control_unit.update(to_ins("1000_0011_0000_0001"))
-puts $control_unit.set_ssr
-
-puts "", "##### ALU Tests ####"
-
-puts $alu.result
-$alu.compute(1, 2, 4)
-puts $alu.result
-
-puts "", "##### Register Tests ####"
-
-puts $registers
-#$registers.update_sp(-1, 0)
-puts $registers
-
-puts "", "#### END INDIVIDUAL TESTS ####", ""
-
-=end
-
 $clock = Clock.new
 $memory = Memory.new(InitMemory::create_memory_array)
 $registers = Registers.new
