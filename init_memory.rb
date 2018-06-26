@@ -21,9 +21,9 @@ module InitMemory
         
         # puts instructions
         
-        # Convert instructions to integers and resize array to 256.
+        # Convert instructions to integers and resize array to 64 (for now).
         instructions.map! {|i| CrSymbols.to_ins(i)}
-        instructions.fill(0, instructions.length...256)
+        instructions.fill(0, instructions.length...64)
         
         return instructions
     end
