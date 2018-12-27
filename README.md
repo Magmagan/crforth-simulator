@@ -1,6 +1,6 @@
 # Crimson Forth
 
-Ruby implementation of Crimson Forth, trying to mimic the sequential and combinational workings of a circuit as closely as possible. This tool is being developed to ease porting to and debugging a synthesizeable HDL implementation.
+Ruby implementation of Crimson Forth, trying to mimic the sequential and combinational workings of a hardware description of the processor as closely as possible. This tool is being developed to ease porting to and debugging a synthesizeable HDL implementation.
 
 **TODO**: ~~Fix/add register pushing/popping instructions~~ Done!  
 **TODO**: ~~Add support to the offset register relative addressing function~~ Done!  
